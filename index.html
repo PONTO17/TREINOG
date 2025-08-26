@@ -267,9 +267,6 @@
     </div>
 
     <script>
-    /* =========================
-       JS ORIGINAL — INALTERADO
-    ==========================*/
     document.addEventListener('DOMContentLoaded', () => {
         // --- CONFIGURAÇÃO E MODELO DE DADOS ---
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzVty1w-j0GIu4nwI_ZztUFKWFiOLdq0Tla99DxP6qszAiIP1DPBY3kQ0w2bzswODVp/exec';
@@ -464,6 +461,28 @@
             }
         }
         
+        // NOVA FUNÇÃO: Salva a nova ordem dos exercícios na planilha
+        async function updateExerciseOrderInSheet(workoutId, exercises) {
+            console.log("A salvar a nova ordem dos exercícios...");
+
+            const formData = new FormData();
+            // Ação nova que precisa ser implementada no seu Google Apps Script
+            formData.append('action', 'updateExerciseOrder'); 
+            formData.append('workoutId', workoutId);
+            formData.append('exercises', JSON.stringify(exercises));
+
+            try {
+                const response = await fetch(SCRIPT_URL, { method: 'POST', body: formData });
+                const result = await response.json();
+                if (result.result !== 'success') throw new Error(result.message);
+                console.log("Ordem dos exercícios salva com sucesso.");
+            } catch (error) {
+                console.error("Erro ao salvar a ordem dos exercícios:", error);
+                // Opcional: Informar ao usuário que o salvamento falhou.
+                // alert("Falha ao salvar a nova ordem. A alteração pode ser perdida.");
+            }
+        }
+
         async function updateWorkoutTitleInSheet(workoutId, newTitle) {
             const formData = new FormData();
             formData.append('action', 'updateWorkoutTitle');
@@ -644,8 +663,11 @@
             }
         }
 
-        function moveExercise(exerciseId, direction) {
+        // FUNÇÃO MODIFICADA: Agora é 'async' e salva a nova ordem automaticamente.
+        async function moveExercise(exerciseId, direction) {
             const workout = workoutsData[currentWorkoutId];
+            if (!workout || !workout.exercises) return;
+
             const exercises = workout.exercises;
             const index = exercises.findIndex(ex => ex.id === exerciseId);
 
@@ -653,8 +675,15 @@
                 [exercises[index], exercises[index - 1]] = [exercises[index - 1], exercises[index]];
             } else if (direction === 'down' && index < exercises.length - 1) {
                 [exercises[index], exercises[index + 1]] = [exercises[index + 1], exercises[index]];
+            } else {
+                return; // Nenhuma alteração foi feita, então não é preciso salvar.
             }
+
+            // 1. Atualiza a interface imediatamente para uma sensação responsiva.
             renderWorkout(currentWorkoutId);
+
+            // 2. Salva a nova ordem no backend em segundo plano.
+            await updateExerciseOrderInSheet(currentWorkoutId, exercises);
         }
 
         function updateEventListeners() {
@@ -691,6 +720,7 @@
                 if (moveBtn) {
                     const exerciseId = moveBtn.closest('.exercise-item').id;
                     const direction = moveBtn.dataset.direction;
+                    // Chama a função assíncrona para mover e salvar
                     moveExercise(exerciseId, direction);
                     return;
                 }
